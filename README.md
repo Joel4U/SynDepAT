@@ -22,8 +22,8 @@ Transformers 3.3.1
 
 | Model  | Dataset | Pretrained Model |P | R | F1 |
 | ------------- | ------------- |-------------|------------- |------------- |------------- |
-| RoBERTa-base-Syn-LSTM-CRF  | English-Conll2003-NER  | chinese-electra-180g-base-discriminator |-  |-  |-  |
-| RoBERTa-base-Syn-LSTM-Span | English-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
+| RoBERTa-base-Syn-LSTM-CRF  | English-Conll2003-NER  | RoBERTa-base |-  |-  |-  |
+| RoBERTa-base-Syn-LSTM-Span | English-XXX-NER  | RoBERTa-base |- |-  | - |
+| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
+| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
+| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
