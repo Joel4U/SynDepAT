@@ -15,17 +15,18 @@ from src.data import TransformersNERDataset
 from torch.utils.data import DataLoader
 from transformers import set_seed, AutoTokenizer
 from src.config.span_eval import span_f1,span_f1_prune,get_predict,get_predict_prune
-import logging
+from logger import get_logger
 from termcolor import colored
 
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-    datefmt="%m/%d/%Y %H:%M:%S",
-    level=logging.INFO,
-)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger()
+# logging.basicConfig(
+#     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+#     datefmt="%m/%d/%Y %H:%M:%S",
+#     level=logging.INFO,
+# )
+#
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
 
 def parse_arguments(parser):
     ###Training Hyperparameters
@@ -59,7 +60,7 @@ def parse_arguments(parser):
     parser.add_argument("--print_detail_f1", type= int, default= 0, choices= [0, 1], help= "Open and close printing f1 scores for each tag after each evaluation epoch")
     parser.add_argument("--earlystop_atr", type=str, default="micro", choices= ["micro", "macro"], help= "Choose between macro f1 score and micro f1 score for early stopping evaluation")
     parser.add_argument('--dep_model', type=str, default="dggcn", choices=["none", "dggcn", "aelgcn"], help="dg_gcn mode consists of both GCN and Syn-LSTM")
-    parser.add_argument('--parser_mode', type=str, default="crf", choices=["crf", "span"], help="parser model consists of crf and span")
+    parser.add_argument('--parser_mode', type=str, default="span", choices=["crf", "span"], help="parser model consists of crf and span")
 
     parser.add_argument("--shared_enc_type", default='adatrans', choices=['transformer', 'adatrans'])
     parser.add_argument("--attn_layer", type=int, default=6, help='the number of shared encoder layer')
@@ -205,11 +206,10 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
     total_correct, total_predict, total_golden = 0, 0, 0
     batch_size = data_loader.batch_size
     with torch.no_grad(), torch.cuda.amp.autocast(enabled=bool(config.fp16)):
-        # for batch_id, batch in tqdm(enumerate(data_loader, 0), total=len(data_loader)):
         for batch_id, batch in enumerate(data_loader, 0):
             one_batch_insts = insts[batch_id * batch_size:(batch_id + 1) * batch_size]
             if config.parser_mode == PaserModeType.span:
-                logits = model(subword_input_ids=batch.input_ids.to(config.device),
+                logits = model(Task = False, subword_input_ids=batch.input_ids.to(config.device),
                              word_seq_lens=batch.word_seq_len.to(config.device),
                              orig_to_tok_index=batch.orig_to_tok_index.to(config.device), attention_mask=batch.attention_mask.to(config.device),
                              depheads=None, deplabels=None,
@@ -229,7 +229,7 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
                 total_golden += batch_golden.item()
                 batch_id += 1
             else:
-                logits = model(subword_input_ids=batch.input_ids.to(config.device),
+                logits = model(Task = False, subword_input_ids=batch.input_ids.to(config.device),
                              word_seq_lens=batch.word_seq_len.to(config.device),
                              orig_to_tok_index=batch.orig_to_tok_index.to(config.device),
                              attention_mask=batch.attention_mask.to(config.device),
@@ -273,7 +273,7 @@ def main():
     conf = Config(opt)
     # NER+DP Data Reading
     tokenizer = AutoTokenizer.from_pretrained(conf.embedder_type, add_prefix_space=True)
-    logger.info(f"[NER Data Info] Reading dataset from: \t{conf.nerdp_train_file}\t{conf.nerdp_dev_file}\t{conf.nerdp_test_file}")
+    logger.info(f"[NER+DP Data Info] Reading dataset from: \t{conf.nerdp_train_file}\t{conf.nerdp_dev_file}\t{conf.nerdp_test_file}")
     nerdp_train_dataset = TransformersNERDataset(conf.parser_mode, conf.dep_model, conf.nerdp_train_file, tokenizer,
                                            number=-1, is_train=True)
     conf.nerdp_label2idx = nerdp_train_dataset.label2idx
@@ -282,7 +282,6 @@ def main():
     conf.root_dep_label_id = nerdp_train_dataset.root_dep_label_id
     # conf.nerdp_poslabel2idx = nerdp_train_dataset.poslabel2idx
     conf.nerdp_label_size = len(nerdp_train_dataset.label2idx)
-    conf.deplabel_size = len(nerdp_train_dataset.deplabel2idx)
 
     nerdp_dev_dataset = TransformersNERDataset(conf.parser_mode, conf.dep_model, conf.nerdp_dev_file, tokenizer,
                                          number=-1, label2idx=nerdp_train_dataset.label2idx,
@@ -302,7 +301,7 @@ def main():
 
     # Only NER Data Reading
     # tokenizer = AutoTokenizer.from_pretrained(conf.embedder_type, add_prefix_space=True, use_fast=True)
-    logger.info(f"[SRL Data Info] Reading dataset from: \t{conf.ner_train_file}\t{conf.ner_dev_file}\t{conf.ner_test_file}")
+    logger.info(f"[Only NER Data Info] Reading dataset from: \t{conf.ner_train_file}\t{conf.ner_dev_file}\t{conf.ner_test_file}")
     ner_train_dataset = TransformersNERDataset(conf.parser_mode, DepModelType.none, conf.ner_train_file, tokenizer, number=-1, is_train=True)
     conf.ner_label2idx = ner_train_dataset.label2idx
     conf.ner_idx2labels = ner_train_dataset.idx2labels
