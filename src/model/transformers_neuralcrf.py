@@ -30,6 +30,7 @@ class SynDepAT(nn.Module):
     def __init__(self, config):
         super(SynDepAT, self).__init__()
         self.device = config.device
+        # self.dep_model = config.dep_model
         # NER + DP encoder and decoder
         self.nerdp_transformer = TransformersEmbedder(transformer_model_name=config.embedder_type)
         self.nerdp_transformer_drop = nn.Dropout(config.dropout)
@@ -45,22 +46,23 @@ class SynDepAT(nn.Module):
                                         idx2labels=config.nerdp_idx2labels)
         else:
             #  bucket_widths: Whether to bucket the span widths into log-space buckets. If `False`, the raw span widths are used.
-            if self.dep_model == DepModelType.dggcn or self.dep_model == DepModelType.aelgcn:
-                self.nerdp_endpoint_span_extractor = EndpointSpanExtractor(config.gcn_outputsize,
-                                                                      combination='x,y',
-                                                                      num_width_embeddings=config.nerdp_max_entity_length,
-                                                                      span_width_embedding_dim=50,
-                                                                      bucket_widths=True)
-                input_dim = config.gcn_outputsize * 2 + self.tokenLen_emb_dim + self.spanLen_emb_dim
-            else:
-                self.nerdp_endpoint_span_extractor = EndpointSpanExtractor(self.nerdp_transformer.get_output_dim(),
-                                                                      combination='x,y',
-                                                                      num_width_embeddings=config.nerdp_max_entity_lengthh,
-                                                                      span_width_embedding_dim=50,
-                                                                      bucket_widths=True)
-                input_dim = self.nerdp_transformer.get_output_dim() * 2 + 50 + 50 # self.tokenLen_emb_dim + self.spanLen_emb_dim
+            # if self.dep_model == DepModelType.dggcn or self.dep_model == DepModelType.aelgcn:
+            self.nerdp_endpoint_span_extractor = EndpointSpanExtractor(config.gcn_outputsize * 2,
+                                                                  combination='x,y',
+                                                                  num_width_embeddings=config.nerdp_max_entity_length,
+                                                                  span_width_embedding_dim=50,
+                                                                  bucket_widths=True)
+            self.nerdp_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
+            input_dim = self.nerdp_endpoint_span_extractor.get_output_dim() + self.nerdp_attentive_span_extractor.get_output_dim()
+            # else:
+            #     self.nerdp_endpoint_span_extractor = EndpointSpanExtractor(self.nerdp_transformer.get_output_dim(),
+            #                                                           combination='x,y',
+            #                                                           num_width_embeddings=config.nerdp_max_entity_lengthh,
+            #                                                           span_width_embedding_dim=50,
+            #                                                           bucket_widths=True)
+            #     self.nerdp_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
+            #     input_dim = self.nerdp_endpoint_span_extractor.get_output_dim() + self.nerdp_attentive_span_extractor.get_output_dim()
             self.nerdp_span_classifier = MultiNonLinearClassifier(input_dim, config.nerdp_label_size, 0.2) # model_dropout = 0.2
-            self.nerdp_spanLen_embedding = nn.Embedding(config.nerdp_max_entity_length + 1, 50, padding_idx=0)
         # NER encoder and decoder
         self.ner_transformer = TransformersEmbedder(transformer_model_name=config.embedder_type)
         self.ner_transformer_drop = nn.Dropout(config.dropout)
@@ -71,22 +73,23 @@ class SynDepAT(nn.Module):
                                         idx2labels=config.ner_idx2labels)
         else:
             #  bucket_widths: Whether to bucket the span widths into log-space buckets. If `False`, the raw span widths are used.
-            if self.dep_model == DepModelType.dggcn or self.dep_model == DepModelType.aelgcn:
-                self.ner_endpoint_span_extractor = EndpointSpanExtractor(config.gcn_outputsize,
-                                                                      combination='x,y',
-                                                                      num_width_embeddings=config.ner_max_entity_length,
-                                                                      span_width_embedding_dim=50,
-                                                                      bucket_widths=True)
-                input_dim = config.gcn_outputsize * 2 + 50 + 50 # self.tokenLen_emb_dim + self.spanLen_emb_dim
-            else:
-                self.ner_endpoint_span_extractor = EndpointSpanExtractor(self.ner_transformer.get_output_dim(),
-                                                                      combination='x,y',
-                                                                      num_width_embeddings=config.ner_max_entity_length,
-                                                                      span_width_embedding_dim=50,
-                                                                      bucket_widths=True)
-                input_dim = self.ner_transformer.get_output_dim() * 2 + 50 + 50 # self.tokenLen_emb_dim + self.spanLen_emb_dim
+            # if self.dep_model == DepModelType.dggcn or self.dep_model == DepModelType.aelgcn:
+            #     self.ner_endpoint_span_extractor = EndpointSpanExtractor(config.gcn_outputsize * 2,
+            #                                                           combination='x,y',
+            #                                                           num_width_embeddings=config.ner_max_entity_length,
+            #                                                           span_width_embedding_dim=50,
+            #                                                           bucket_widths=True)
+            #     self.ner_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
+            #     input_dim = self.ner_endpoint_span_extractor.get_output_dim() + self.ner_attentive_span_extractor.get_output_dim()
+            # else:
+            self.ner_endpoint_span_extractor = EndpointSpanExtractor(config.gcn_outputsize * 2,
+                                                                  combination='x,y',
+                                                                  num_width_embeddings=config.ner_max_entity_length,
+                                                                  span_width_embedding_dim=50,
+                                                                  bucket_widths=True)
+            self.ner_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
+            input_dim = self.ner_endpoint_span_extractor.get_output_dim() + self.ner_attentive_span_extractor.get_output_dim()
             self.ner_span_classifier = MultiNonLinearClassifier(input_dim, config.ner_label_size, 0.2) # model_dropout = 0.2
-            self.ner_spanLen_embedding = nn.Embedding(config.ner_max_entity_length + 1, 50, padding_idx=0)
         self.classifier = nn.Softmax(dim=-1)
         self.cross_entropy = nn.CrossEntropyLoss(reduction='none', ignore_index=-1)
         # share encoder
@@ -125,7 +128,11 @@ class SynDepAT(nn.Module):
             dep_label_adj = torch.from_numpy(np.stack(dep_label_adj, axis=0)).long()
             private_feature_out = self.gcn(word_rep, word_seq_lens, adj_matrixs, dep_label_adj)
             # shared encoding layer using TENER
-            shared_feature_out = self.shared_encoder(private_feature_out, attention_mask)
+            batch_size = word_rep.size(0)
+            sent_len = word_rep.size(1)
+            maskTemp = torch.arange(1, sent_len + 1, dtype=torch.long, device=word_rep.device).view(1, sent_len).expand(batch_size, sent_len)
+            mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, sent_len))
+            shared_feature_out = self.shared_encoder(private_feature_out, mask)
             concat_feature_out = self.fusion_nerdp(private_feature_out, shared_feature_out)
             concat_feature_out = self.fc_dropout(concat_feature_out)
             # adv loss
@@ -134,10 +141,6 @@ class SynDepAT(nn.Module):
             # private decoding
             if self.parser_mode == PaserModeType.crf:
                 encoder_scores = self.nerdp_line_encoder(concat_feature_out, word_seq_lens)
-                batch_size = word_rep.size(0)
-                sent_len = word_rep.size(1)
-                maskTemp = torch.arange(1, sent_len + 1, dtype=torch.long, device=word_rep.device).view(1,sent_len).expand(batch_size, sent_len)
-                mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, sent_len))
                 if is_train:
                     unlabed_score, labeled_score = self.nerdp_crf(encoder_scores, word_seq_lens, labels, mask)
                     return unlabed_score - labeled_score + adv_loss
@@ -146,9 +149,8 @@ class SynDepAT(nn.Module):
                     return decodeIdx
             else: # span and hidden states begin and end tcat
                 all_span_rep = self.nerdp_endpoint_span_extractor(concat_feature_out, all_span_ids.long())  # [batch, n_span, hidden]
-                spanlen_rep = self.nerdp_spanLen_embedding(all_span_lens)  # (bs, n_span, len_dim)
-                spanlen_rep = functional.relu(spanlen_rep)
-                all_span_rep = torch.cat((all_span_rep, spanlen_rep), dim=-1)
+                att_span_emb = self.nerdp_attentive_span_extractor(concat_feature_out, all_span_ids.long())
+                all_span_rep = torch.cat((all_span_rep, att_span_emb), dim=-1)
                 all_span_rep = self.nerdp_span_classifier(all_span_rep)  # (batch,n_span,n_class)
                 if is_train:
                     _, n_span = labels.size()
@@ -165,8 +167,13 @@ class SynDepAT(nn.Module):
             word_rep = self.ner_transformer(subword_input_ids, orig_to_tok_index, attention_mask)
             word_rep = self.ner_transformer_drop(word_rep)
             private_feature_out = self.linear(word_rep)
-            # shared encoding layer
-            shared_feature_out = self.shared_encoder(private_feature_out, attention_mask)
+            # shared encoding layer using TENER
+            batch_size = word_rep.size(0)
+            sent_len = word_rep.size(1)
+            maskTemp = torch.arange(1, sent_len + 1, dtype=torch.long, device=word_rep.device).view(1, sent_len).expand(
+                batch_size, sent_len)
+            mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, sent_len))
+            shared_feature_out = self.shared_encoder(private_feature_out, mask)
             concat_feature_out = self.fusion_ner(private_feature_out, shared_feature_out)
             concat_feature_out = self.fc_dropout(concat_feature_out)
             # adv loss
@@ -175,10 +182,6 @@ class SynDepAT(nn.Module):
             # private decoding
             if self.parser_mode == PaserModeType.crf:
                 encoder_scores = self.ner_line_encoder(concat_feature_out, word_seq_lens)
-                batch_size = word_rep.size(0)
-                sent_len = word_rep.size(1)
-                maskTemp = torch.arange(1, sent_len + 1, dtype=torch.long, device=word_rep.device).view(1,sent_len).expand(batch_size, sent_len)
-                mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, sent_len))
                 if is_train:
                     unlabed_score, labeled_score = self.ner_crf(encoder_scores, word_seq_lens, labels, mask)
                     return unlabed_score - labeled_score + adv_loss
@@ -187,9 +190,8 @@ class SynDepAT(nn.Module):
                     return decodeIdx
             else: # span and hidden states begin and end tcat
                 all_span_rep = self.ner_endpoint_span_extractor(concat_feature_out, all_span_ids.long())  # [batch, n_span, hidden]
-                spanlen_rep = self.ner_spanLen_embedding(all_span_lens)  # (bs, n_span, len_dim)
-                spanlen_rep = functional.relu(spanlen_rep)
-                all_span_rep = torch.cat((all_span_rep, spanlen_rep), dim=-1)
+                att_span_emb = self.ner_attentive_span_extractor(concat_feature_out, all_span_ids.long())
+                all_span_rep = torch.cat((all_span_rep, att_span_emb), dim=-1)
                 all_span_rep = self.ner_span_classifier(all_span_rep)  # (batch,n_span,n_class)
                 if is_train:
                     _, n_span = labels.size()
