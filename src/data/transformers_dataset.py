@@ -255,7 +255,7 @@ class TransformersNERDataset(Dataset):
                         labels = convert_iobes(labels)
                     else:
                         chunks = self.get_chunks(labels)
-                    if 'conll' in file:
+                    if 'conll' in file or 'wnut' in file or 'Weibo' in file or 'resume' in file:
                         insts.append(Instance(words=words, ori_words=ori_words, dep_heads=None, dep_labels=None, span_labels=chunks, labels=labels))
                     else:
                         insts.append(Instance(words=words, ori_words=ori_words, dep_heads=dep_heads, dep_labels=dep_labels, span_labels=chunks, labels=labels))
@@ -271,7 +271,7 @@ class TransformersNERDataset(Dataset):
                 elif line == "" and len(words) == 0:
                     continue
                 ls = line.split()
-                if 'conll' or 'wnut' or 'Weibo' or 'resume' in file:
+                if 'conll' in file or 'wnut' in file or 'Weibo' in file or 'resume' in file:
                     word, label = ls[0], ls[-1]
                 else:
                     word, head, dep_label, label = ls[1], int(ls[6]), ls[7], ls[-1]
