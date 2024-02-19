@@ -9,7 +9,7 @@ import itertools
 from transformers import PreTrainedTokenizerFast, RobertaTokenizer, AutoTokenizer
 import numpy as np
 from src.config.config import PaserModeType, DepModelType
-from src.data.data_utils import convert_iobes, build_spanlabel_idx, build_label_idx, build_deplabel_idx, enumerate_spans
+from src.data.data_utils import convert_iobes, build_spanlabel_idx, build_label_idx, build_deplabel_idx
 from src.data import Instance
 import logging
 import unicodedata
@@ -271,7 +271,7 @@ class TransformersNERDataset(Dataset):
                 elif line == "" and len(words) == 0:
                     continue
                 ls = line.split()
-                if 'conll' in file:
+                if 'conll' or 'wnut' or 'Weibo' or 'resume' in file:
                     word, label = ls[0], ls[-1]
                 else:
                     word, head, dep_label, label = ls[1], int(ls[6]), ls[7], ls[-1]
