@@ -67,7 +67,7 @@ class SynDepAT(nn.Module):
         self.ner_transformer = TransformersEmbedder(transformer_model_name=config.embedder_type)
         self.ner_transformer_drop = nn.Dropout(config.dropout)
         self.linear = nn.Linear(self.ner_transformer.get_output_dim(), config.gcn_outputsize)
-        self.ner_line_encoder = LinearEncoder(label_size=config.ner_label_size, input_dim=self.ner_transformer.get_output_dim())
+        self.ner_line_encoder = LinearEncoder(label_size=config.ner_label_size, input_dim=config.gcn_outputsize * 2)
         if self.parser_mode == PaserModeType.crf:
             self.ner_crf = LinearCRF(label_size=config.ner_label_size, label2idx=config.ner_label2idx, add_iobes_constraint=config.add_iobes_constraint,
                                         idx2labels=config.ner_idx2labels)
