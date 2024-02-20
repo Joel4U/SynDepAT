@@ -236,7 +236,7 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
                              depheads=None, deplabels=None,
                              all_span_lens=None, all_span_ids=None, all_span_weight=None, real_span_mask=None,
                              labels=batch.label_ids.to(config.device), is_train=False)
-                batch_p , batch_predict, batch_total = evaluate_batch_insts(one_batch_insts, logits, batch.label_ids, batch.word_seq_len, config.idx2labels)
+                batch_p , batch_predict, batch_total = evaluate_batch_insts(one_batch_insts, logits, batch.label_ids, batch.word_seq_len, config.ner_idx2labels)
                 p_dict += batch_p
                 total_predict_dict += batch_predict
                 total_entity_dict += batch_total
