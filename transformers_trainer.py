@@ -267,7 +267,7 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
     return [precision, recall, fscore]
 
 def main():
-    parser = argparse.ArgumentParser(description="Transformer CRF implementation")
+    parser = argparse.ArgumentParser(description="SynDepAT implementation")
     opt = parse_arguments(parser)
     set_seed(opt.seed)
     conf = Config(opt)
