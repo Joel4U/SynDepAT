@@ -40,7 +40,8 @@ logger = get_logger()
 def parse_arguments(parser):
     ###Training Hyperparameters
     parser.add_argument('--seed', type=int, default=42, help="random seed")
-    parser.add_argument('--dataset', type=str, default="conll03")
+    parser.add_argument('--nerdp_dataset', type=str, default="ontonotes")
+    parser.add_argument('--ner_dataset', type=str, default="conll03")
     parser.add_argument('--optimizer', type=str, default="adamw", help="This would be useless if you are working with transformers package")
     parser.add_argument('--learning_rate', type=float, default=2e-5, help="usually we use 0.01 for sgd but 2e-5 working with bert/roberta")
     parser.add_argument('--momentum', type=float, default=0.0)
@@ -95,9 +96,8 @@ def train_model(config: Config, epoch: int, nerdp_train_loader: DataLoader, nerd
     print(f"[Optimizer Info] Modify the optimizer info as you need.")
     print(optimizer)
 
-    model, optimizer, train_loader, dev_loader, test_loader, scheduler = accelerator.prepare(model, optimizer,
-                                                                                             nerdp_train_loader, nerdp_dev_loader, nerdp_test_loader,
-                                                                                             ner_train_loader, ner_dev_loader, ner_test_loader,scheduler)
+    model, optimizer, nerdp_train_loader, nerdp_dev_loader, nerdp_test_loader, ner_train_loader, ner_dev_loader, ner_test_loader, scheduler = \
+        accelerator.prepare(model, optimizer, nerdp_train_loader, nerdp_dev_loader, nerdp_test_loader, ner_train_loader, ner_dev_loader, ner_test_loader, scheduler)
 
     metric = datasets.load_metric('seqeval')
     best_ner_dev = [-1, 0]
@@ -127,22 +127,22 @@ def train_model(config: Config, epoch: int, nerdp_train_loader: DataLoader, nerd
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=bool(config.fp16)):
                 if config.parser_mode == PaserModeType.span:
-                    loss = model(Task = True, subword_input_ids = batch.input_ids.to(config.device),
-                                 word_seq_lens = batch.word_seq_len.to(config.device),
-                                 orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
-                                 attention_mask = batch.attention_mask.to(config.device),
-                                 depheads=batch.dephead_ids.to(config.device), deplabels=batch.deplabel_ids.to(config.device),
-                                 all_span_lens=batch.all_span_lens.to(config.device), all_span_ids = batch.all_span_ids.to(config.device),
-                                 all_span_weight=batch.all_span_weight.to(config.device), real_span_mask=batch.all_span_mask.to(config.device),
-                                 labels = batch.label_ids.to(config.device))
+                    loss = model(Task = True, subword_input_ids = batch.input_ids,
+                                 word_seq_lens = batch.word_seq_len,
+                                 orig_to_tok_index = batch.orig_to_tok_index,
+                                 attention_mask = batch.attention_mask,
+                                 depheads=batch.dephead_ids, deplabels=batch.deplabel_ids,
+                                 all_span_lens=batch.all_span_lens, all_span_ids = batch.all_span_ids,
+                                 all_span_weight=batch.all_span_weight, real_span_mask=batch.all_span_mask,
+                                 labels = batch.label_ids)
                 else:
-                    loss = model(Task = True, subword_input_ids = batch.input_ids.to(config.device),
-                                 word_seq_lens = batch.word_seq_len.to(config.device),
-                                 orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
-                                 attention_mask = batch.attention_mask.to(config.device),
-                                 depheads=batch.dephead_ids.to(config.device), deplabels=batch.deplabel_ids.to(config.device),
+                    loss = model(Task = True, subword_input_ids = batch.input_ids,
+                                 word_seq_lens = batch.word_seq_len,
+                                 orig_to_tok_index = batch.orig_to_tok_index,
+                                 attention_mask = batch.attention_mask,
+                                 depheads=batch.dephead_ids, deplabels=batch.deplabel_ids,
                                  all_span_lens=None, all_span_ids=None, all_span_weight=None, real_span_mask=None,
-                                 labels = batch.label_ids.to(config.device))
+                                 labels = batch.label_ids)
             epoch_loss += loss.item()
             accelerator.backward(loss)
             accelerator.clip_grad_norm_(model.parameters(), config.max_grad_norm)
@@ -155,22 +155,22 @@ def train_model(config: Config, epoch: int, nerdp_train_loader: DataLoader, nerd
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=bool(config.fp16)):
                 if config.parser_mode == PaserModeType.span:
-                    loss = model(Task = False, subword_input_ids = batch.input_ids.to(config.device),
-                                 word_seq_lens = batch.word_seq_len.to(config.device),
-                                 orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
-                                 attention_mask = batch.attention_mask.to(config.device),
-                                 depheads=batch.dephead_ids.to(config.device), deplabels=batch.deplabel_ids.to(config.device),
-                                 all_span_lens=batch.all_span_lens.to(config.device), all_span_ids = batch.all_span_ids.to(config.device),
-                                 all_span_weight=batch.all_span_weight.to(config.device), real_span_mask=batch.all_span_mask.to(config.device),
-                                 labels = batch.label_ids.to(config.device))
+                    loss = model(Task = False, subword_input_ids = batch.input_ids,
+                                 word_seq_lens = batch.word_seq_len,
+                                 orig_to_tok_index = batch.orig_to_tok_index,
+                                 attention_mask = batch.attention_mask,
+                                 depheads=batch.dephead_ids, deplabels=batch.deplabel_ids,
+                                 all_span_lens=batch.all_span_lens, all_span_ids = batch.all_span_ids,
+                                 all_span_weight=batch.all_span_weight, real_span_mask=batch.all_span_mask,
+                                 labels = batch.label_ids)
                 else:
-                    loss = model(Task = False, subword_input_ids = batch.input_ids.to(config.device),
-                                 word_seq_lens = batch.word_seq_len.to(config.device),
-                                 orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
-                                 attention_mask = batch.attention_mask.to(config.device),
-                                 depheads=batch.dephead_ids.to(config.device), deplabels=batch.deplabel_ids.to(config.device),
+                    loss = model(Task = False, subword_input_ids = batch.input_ids,
+                                 word_seq_lens = batch.word_seq_len,
+                                 orig_to_tok_index = batch.orig_to_tok_index,
+                                 attention_mask = batch.attention_mask,
+                                 depheads=batch.dephead_ids, deplabels=batch.deplabel_ids,
                                  all_span_lens=None, all_span_ids=None, all_span_weight=None, real_span_mask=None,
-                                 labels = batch.label_ids.to(config.device))
+                                 labels = batch.label_ids)
             epoch_loss += loss.item()
             accelerator.backward(loss)
             accelerator.clip_grad_norm_(model.parameters(), config.max_grad_norm)
@@ -207,13 +207,13 @@ def ner_evaluate_model(config: Config,model: SynDepAT, data_loader: DataLoader, 
     with torch.no_grad(), torch.cuda.amp.autocast(enabled=bool(config.fp16)):
         for batch_id, batch in enumerate(data_loader, 0):
             if config.parser_mode == PaserModeType.crf:
-                logits = model(Task = False, subword_input_ids=batch.input_ids.to(config.device),
-                             word_seq_lens=batch.word_seq_len.to(config.device),
-                             orig_to_tok_index=batch.orig_to_tok_index.to(config.device), attention_mask=batch.attention_mask.to(config.device),
+                logits = model(Task = False, subword_input_ids=batch.input_ids,
+                             word_seq_lens=batch.word_seq_len,
+                             orig_to_tok_index=batch.orig_to_tok_index, attention_mask=batch.attention_mask,
                              depheads=None, deplabels=None,
-                             all_span_lens=batch.all_span_lens.to(config.device), all_span_ids=batch.all_span_ids.to(config.device),
-                             all_span_weight=batch.all_span_weight.to(config.device), real_span_mask=batch.all_span_mask.to(config.device),
-                             labels=batch.label_ids.to(config.device), is_train=False)
+                             all_span_lens=batch.all_span_lens, all_span_ids=batch.all_span_ids,
+                             all_span_weight=batch.all_span_weight, real_span_mask=batch.all_span_mask,
+                             labels=batch.label_ids, is_train=False)
 
                 batch_max_ids = accelerator.pad_across_processes(logits, dim=1, pad_index=config.ner_label2idx[PAD])
                 batch_max_ids = accelerator.gather_for_metrics(batch_max_ids)
@@ -284,7 +284,6 @@ def main():
                                           deplabel2idx=nerdp_train_dataset.deplabel2idx, is_train=False)
 
     num_workers = 8
-    conf.label_size = len(train_dataset.label2idx)
     conf.nerdp_max_entity_length = max(max(nerdp_train_dataset.max_entity_length, nerdp_dev_dataset.max_entity_length),
                                  nerdp_test_dataset.max_entity_length)
     nerdp_train_dataloader = DataLoader(nerdp_train_dataset, batch_size=conf.batch_size, shuffle=True, num_workers=num_workers,
