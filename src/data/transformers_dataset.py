@@ -80,8 +80,13 @@ class TransformersNERDataset(Dataset):
                                              label2idx: Dict[str, int]) -> List[Dict]:
         features = []
         # print("[Data Info] We are not limiting the max length in tokenizer. You should be aware of that")
+        def clean_text(text):
+            cleaned_text = re.sub(r'\ufffd', '。', text)
+            return cleaned_text
+            
         for idx, inst in tqdm(enumerate(instances)):
             words = inst.ori_words
+            words = [clean_text(w) for w in words]
             orig_to_tok_index = []
             # res = tokenizer.encode_plus(words, is_split_into_words=True) # RobertaTokenizerFast
             # subword_idx2word_idx = res.word_ids(batch_index=0) # RobertaTokenizerFast
