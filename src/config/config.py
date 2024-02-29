@@ -86,7 +86,10 @@ class Config:
         self.l2 = args.l2
         self.num_epochs = args.num_epochs
         self.use_dev = True
-        self.batch_size = args.batch_size
+        self.nerdp_batch_size = args.nerdp_batch_size
+        self.ner_batch_size = args.ner_batch_size
+        self.nerdp_max_entity_length = args.nerdp_max_entity_length
+        self.ner_max_entity_length = args.ner_max_entity_length
         self.clip = 5
         self.lr_decay = args.lr_decay
         self.device = torch.device(args.device) if "device" in args.__dict__ else None
@@ -97,8 +100,8 @@ class Config:
         self.print_detail_f1 = args.print_detail_f1 if "print_detail_f1" in args.__dict__ else None
         self.earlystop_atr = args.earlystop_atr if "earlystop_atr" in args.__dict__ else None
         self.dep_model = DepModelType[args.dep_model]
-        self.parser_mode = PaserModeType[args.parser_mode]
-
+        self.nerdp_parser_mode = PaserModeType[args.nerdp_parser_mode]
+        self.ner_parser_mode = PaserModeType[args.ner_parser_mode]
         self.shared_enc_type = args.shared_enc_type
         self.attn_layer = args.attn_layer
         self.fusion_dropout = args.fusion_dropout

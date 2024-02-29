@@ -19,48 +19,37 @@ from logger import get_logger
 from termcolor import colored
 
 logger = get_logger()
-# logging.basicConfig(
-#     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-#     datefmt="%m/%d/%Y %H:%M:%S",
-#     level=logging.INFO,
-# )
-#
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
 
 def parse_arguments(parser):
     ###Training Hyperparameters
-    parser.add_argument('--device', type=str, default="cpu", choices=['cpu', 'cuda:0', 'cuda:1', 'cuda:2'],
+    parser.add_argument('--device', type=str, default="cuda:1", choices=['cpu', 'cuda:0', 'cuda:1', 'cuda:2'],
                         help="GPU/CPU devices")
     parser.add_argument('--seed', type=int, default=42, help="random seed")
-    parser.add_argument('--nerdp_dataset', type=str, default="ontonotes")
-    parser.add_argument('--ner_dataset', type=str, default="conll03")
+    parser.add_argument('--nerdp_dataset', type=str, default="chinese")
+    parser.add_argument('--ner_dataset', type=str, default="resume")
     parser.add_argument('--optimizer', type=str, default="adamw", help="This would be useless if you are working with transformers package")
     parser.add_argument('--learning_rate', type=float, default=2e-5, help="usually we use 0.01 for sgd but 2e-5 working with bert/roberta")
     parser.add_argument('--momentum', type=float, default=0.0)
     parser.add_argument('--l2', type=float, default=1e-8)
     parser.add_argument('--lr_decay', type=float, default=0)
-    parser.add_argument('--batch_size', type=int, default=20, help="default batch size is 10 (works well for normal neural crf), here default 30 for bert-based crf")
+    parser.add_argument('--nerdp_batch_size', type=int, default=8, help="ontontes is 15, chinese is 8")
+    parser.add_argument('--ner_batch_size', type=int, default=15, help="default batch size is 10 (works well for normal neural crf), here default 30 for bert-based crf")
+    parser.add_argument('--nerdp_max_entity_length', type=int, default=16, help="in ner+dp domain the max span length, ontonotes and chinese is 16")
+    parser.add_argument('--ner_max_entity_length', type=int, default=28, help="in ner domain the max span length, conll03 is 10, ace04 is 33, ace05 is 27, resume is 28")
     parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 100.")
-    parser.add_argument('--max_no_incre', type=int, default=80, help="early stop when there is n epoch not increasing on dev")
+    parser.add_argument('--max_no_incre', type=int, default=10, help="early stop when there is n epoch not increasing on dev")
     parser.add_argument('--max_grad_norm', type=float, default=1.0, help="The maximum gradient norm, if <=0, means no clipping, usually we don't use clipping for normal neural ncrf")
     parser.add_argument('--fp16', type=int, choices=[0, 1], default=0, help="use 16-bit floating point precision instead of 32-bit")
 
     ##model hyperparameter
-    parser.add_argument('--model_folder', type=str, default="english_model", help="The name to save the model files")
-    parser.add_argument('--lstm_outputsize', type=int, default=200, help="hidden size of the LSTM, usually we set to 200 for LSTM-CRF")
-    # parser.add_argument('--num_srl_lstm_layer', type=int, default=1, help="lstm layer for SRL Encoding")
-
-    parser.add_argument('--biaffine_dim', type=int, default=300, help="hidden size of the biaffine")
     parser.add_argument('--dropout', type=float, default=0.5, help="dropout for embedding")
-
-    parser.add_argument('--embedder_type', type=str, default="roberta-base", help="you can use 'bert-base-uncased' and so on")
+    parser.add_argument('--embedder_type', type=str, default="hfl/chinese-electra-180g-large-discriminator", help="you can use 'roberta-base' and so on")
     parser.add_argument('--add_iobes_constraint', type=int, default=0, choices=[0,1], help="add IOBES constraint for transition parameters to enforce valid transitions")
-
     parser.add_argument("--print_detail_f1", type= int, default= 0, choices= [0, 1], help= "Open and close printing f1 scores for each tag after each evaluation epoch")
     parser.add_argument("--earlystop_atr", type=str, default="micro", choices= ["micro", "macro"], help= "Choose between macro f1 score and micro f1 score for early stopping evaluation")
     parser.add_argument('--dep_model', type=str, default="dggcn", choices=["none", "dggcn", "aelgcn"], help="dg_gcn mode consists of both GCN and Syn-LSTM")
-    parser.add_argument('--parser_mode', type=str, default="span", choices=["crf", "span"], help="parser model consists of crf and span")
+    parser.add_argument('--nerdp_parser_mode', type=str, default="span", choices=["crf", "span"], help="parser model consists of crf and span")
+    parser.add_argument('--ner_parser_mode', type=str, default="span", choices=["crf", "span"], help="parser model consists of crf and span")
 
     parser.add_argument("--shared_enc_type", default='adatrans', choices=['transformer', 'adatrans'])
     parser.add_argument("--attn_layer", type=int, default=6, help='the number of shared encoder layer')
@@ -111,7 +100,7 @@ def train_model(config: Config, epoch: int, nerdp_train_loader: DataLoader, nerd
         for iter, batch in tqdm(enumerate(nerdp_train_loader, 1), total=len(nerdp_train_loader)):
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=bool(config.fp16)):
-                if config.parser_mode == PaserModeType.span:
+                if config.nerdp_parser_mode == PaserModeType.span:
                     loss = model(Task = True, subword_input_ids = batch.input_ids.to(config.device),
                                  word_seq_lens = batch.word_seq_len.to(config.device),
                                  orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
@@ -147,7 +136,7 @@ def train_model(config: Config, epoch: int, nerdp_train_loader: DataLoader, nerd
         for iter, batch in tqdm(enumerate(ner_train_loader, 1), total=len(ner_train_loader)):
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=bool(config.fp16)):
-                if config.parser_mode == PaserModeType.span:
+                if config.ner_parser_mode == PaserModeType.span:
                     loss = model(Task = False, subword_input_ids = batch.input_ids.to(config.device),
                                  word_seq_lens = batch.word_seq_len.to(config.device),
                                  orig_to_tok_index = batch.orig_to_tok_index.to(config.device),
@@ -208,7 +197,7 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
     with torch.no_grad(), torch.cuda.amp.autocast(enabled=bool(config.fp16)):
         for batch_id, batch in enumerate(data_loader, 0):
             one_batch_insts = insts[batch_id * batch_size:(batch_id + 1) * batch_size]
-            if config.parser_mode == PaserModeType.span:
+            if config.ner_parser_mode == PaserModeType.span:
                 logits = model(Task = False, subword_input_ids=batch.input_ids.to(config.device),
                              word_seq_lens=batch.word_seq_len.to(config.device),
                              orig_to_tok_index=batch.orig_to_tok_index.to(config.device), attention_mask=batch.attention_mask.to(config.device),
@@ -241,7 +230,7 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
                 total_predict_dict += batch_predict
                 total_entity_dict += batch_total
                 batch_id += 1
-    if config.parser_mode == PaserModeType.crf:
+    if config.ner_parser_mode == PaserModeType.crf:
         f1Scores = []
         if print_each_type_metric or config.print_detail_f1 or (config.earlystop_atr == "macro"):
             for key in total_entity_dict:
@@ -267,14 +256,14 @@ def ner_evaluate_model(config: Config, model: SynDepAT, data_loader: DataLoader,
     return [precision, recall, fscore]
 
 def main():
-    parser = argparse.ArgumentParser(description="SynDepAT implementation")
+    parser = argparse.ArgumentParser(description="Transformer CRF implementation")
     opt = parse_arguments(parser)
     set_seed(opt.seed)
     conf = Config(opt)
     # NER+DP Data Reading
     tokenizer = AutoTokenizer.from_pretrained(conf.embedder_type, add_prefix_space=True)
     logger.info(f"[NER+DP Data Info] Reading dataset from: \t{conf.nerdp_train_file}\t{conf.nerdp_dev_file}\t{conf.nerdp_test_file}")
-    nerdp_train_dataset = TransformersNERDataset(conf.parser_mode, conf.dep_model, conf.nerdp_train_file, tokenizer,
+    nerdp_train_dataset = TransformersNERDataset(conf.nerdp_max_entity_length, conf.nerdp_parser_mode, conf.dep_model, conf.nerdp_train_file, tokenizer,
                                            number=-1, is_train=True)
     conf.nerdp_label2idx = nerdp_train_dataset.label2idx
     conf.nerdp_idx2labels = nerdp_train_dataset.idx2labels
@@ -283,45 +272,48 @@ def main():
     # conf.nerdp_poslabel2idx = nerdp_train_dataset.poslabel2idx
     conf.nerdp_label_size = len(nerdp_train_dataset.label2idx)
 
-    nerdp_dev_dataset = TransformersNERDataset(conf.parser_mode, conf.dep_model, conf.nerdp_dev_file, tokenizer,
+    nerdp_dev_dataset = TransformersNERDataset(conf.nerdp_max_entity_length, conf.nerdp_parser_mode, conf.dep_model, conf.nerdp_dev_file, tokenizer,
                                          number=-1, label2idx=nerdp_train_dataset.label2idx,
                                          deplabel2idx=nerdp_train_dataset.deplabel2idx, is_train=False)
-    nerdp_test_dataset = TransformersNERDataset(conf.parser_mode, conf.dep_model, conf.nerdp_test_file, tokenizer,
+    nerdp_test_dataset = TransformersNERDataset(conf.nerdp_max_entity_length, conf.nerdp_parser_mode, conf.dep_model, conf.nerdp_test_file, tokenizer,
                                           number=-1, label2idx=nerdp_train_dataset.label2idx,
                                           deplabel2idx=nerdp_train_dataset.deplabel2idx, is_train=False)
     num_workers = 0
-    conf.nerdp_max_entity_length = max(max(nerdp_train_dataset.max_entity_length, nerdp_dev_dataset.max_entity_length),
-                                 nerdp_test_dataset.max_entity_length)
-    nerdp_train_dataloader = DataLoader(nerdp_train_dataset, batch_size=conf.batch_size, shuffle=True, num_workers=num_workers,
+    # conf.nerdp_max_entity_length = max(max(nerdp_train_dataset.max_entity_length, nerdp_dev_dataset.max_entity_length),
+    #                              nerdp_test_dataset.max_entity_length)
+    nerdp_train_dataloader = DataLoader(nerdp_train_dataset, batch_size=conf.nerdp_batch_size, shuffle=True, num_workers=num_workers,
                                   collate_fn=nerdp_train_dataset.collate_to_max_length)
-    nerdp_dev_dataloader = DataLoader(nerdp_dev_dataset, batch_size=conf.batch_size, shuffle=False, num_workers=num_workers,
+    nerdp_dev_dataloader = DataLoader(nerdp_dev_dataset, batch_size=conf.nerdp_batch_size, shuffle=False, num_workers=num_workers,
                                 collate_fn=nerdp_dev_dataset.collate_to_max_length)
-    nerdp_test_dataloader = DataLoader(nerdp_test_dataset, batch_size=conf.batch_size, shuffle=False, num_workers=num_workers,
+    nerdp_test_dataloader = DataLoader(nerdp_test_dataset, batch_size=conf.nerdp_batch_size, shuffle=False, num_workers=num_workers,
                                  collate_fn=nerdp_test_dataset.collate_to_max_length)
 
     # Only NER Data Reading
     # tokenizer = AutoTokenizer.from_pretrained(conf.embedder_type, add_prefix_space=True, use_fast=True)
     logger.info(f"[Only NER Data Info] Reading dataset from: \t{conf.ner_train_file}\t{conf.ner_dev_file}\t{conf.ner_test_file}")
-    ner_train_dataset = TransformersNERDataset(conf.parser_mode, DepModelType.none, conf.ner_train_file, tokenizer, number=-1, is_train=True)
+    ner_train_dataset = TransformersNERDataset(conf.ner_max_entity_length, conf.ner_parser_mode, DepModelType.none, conf.ner_train_file, tokenizer, number=-1, is_train=True)
     conf.ner_label2idx = ner_train_dataset.label2idx
     conf.ner_idx2labels = ner_train_dataset.idx2labels
     conf.ner_label_size = len(ner_train_dataset.label2idx)
-    ner_dev_dataset = TransformersNERDataset(conf.parser_mode, DepModelType.none, conf.ner_dev_file, tokenizer,
+    ner_dev_dataset = TransformersNERDataset(conf.ner_max_entity_length, conf.ner_parser_mode, DepModelType.none, conf.ner_dev_file, tokenizer,
                                          number=-1, label2idx=ner_train_dataset.label2idx, deplabel2idx=None, is_train=False)
 
-    ner_test_dataset = TransformersNERDataset(conf.parser_mode, DepModelType.none, conf.ner_test_file, tokenizer,
+    ner_test_dataset = TransformersNERDataset(conf.ner_max_entity_length, conf.ner_parser_mode, DepModelType.none, conf.ner_test_file, tokenizer,
                                          number=-1, label2idx=ner_train_dataset.label2idx, deplabel2idx=None, is_train=False)
 
-    conf.ner_max_entity_length = max(max(ner_train_dataset.max_entity_length,  ner_dev_dataset.max_entity_length),
-                                 ner_test_dataset.max_entity_length)
+    # conf.ner_max_entity_length = max(max(ner_train_dataset.max_entity_length,  ner_dev_dataset.max_entity_length),
+    #                              ner_test_dataset.max_entity_length)
 
-    ner_train_dataloader = DataLoader(ner_train_dataset, batch_size=conf.batch_size, shuffle=True, num_workers=num_workers,
+    ner_train_dataloader = DataLoader(ner_train_dataset, batch_size=conf.ner_batch_size, shuffle=True, num_workers=num_workers,
                                   collate_fn=ner_train_dataset.collate_to_max_length)
-    ner_dev_dataloader = DataLoader(ner_dev_dataset, batch_size=conf.batch_size, shuffle=False, num_workers=num_workers,
+    ner_dev_dataloader = DataLoader(ner_dev_dataset, batch_size=conf.ner_batch_size, shuffle=False, num_workers=num_workers,
                                 collate_fn=ner_dev_dataset.collate_to_max_length)
-    ner_test_dataloader = DataLoader(ner_test_dataset, batch_size=conf.batch_size, shuffle=False, num_workers=num_workers,
+    ner_test_dataloader = DataLoader(ner_test_dataset, batch_size=conf.ner_batch_size, shuffle=False, num_workers=num_workers,
                                  collate_fn=ner_test_dataset.collate_to_max_length)
-
+    # if conf.nerdp_parser_mode == PaserModeType.span:
+    #     print(colored(f"[INFO] nerdp_max_entity_length: {conf.nerdp_max_entity_length}", "green"))
+    # if conf.ner_parser_mode == PaserModeType.span:
+    #     print(colored(f"[INFO] ner_max_entity_length: {conf.ner_max_entity_length}", "magenta"))
     train_model(conf, conf.num_epochs, nerdp_train_dataloader, nerdp_dev_dataloader, nerdp_test_dataloader,
                 ner_train_dataloader, ner_dev_dataloader, ner_test_dataloader)
 

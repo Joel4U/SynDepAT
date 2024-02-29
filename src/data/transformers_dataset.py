@@ -9,16 +9,15 @@ import itertools
 from transformers import PreTrainedTokenizerFast, RobertaTokenizer, AutoTokenizer
 import numpy as np
 from src.config.config import PaserModeType, DepModelType
-from src.data.data_utils import convert_iobes, build_spanlabel_idx, build_label_idx, build_deplabel_idx
+from src.data.data_utils import convert_iobes, bmes_to_bioes, build_spanlabel_idx, build_label_idx, build_deplabel_idx
 from src.data import Instance
-import logging
+import json
 import unicodedata
 from transformers.tokenization_utils_base import BatchEncoding
 
-logger = logging.getLogger(__name__)
 
 class TransformersNERDataset(Dataset):
-    def __init__(self, parser_mode: int, dep_model: int, file: str,
+    def __init__(self, max_entity_length, parser_mode: int, dep_model: int, file: str,
                  tokenizer: AutoTokenizer, # tokenizer: PreTrainedTokenizerFast,
                  is_train: bool,
                  sents: List[List[str]] = None,
@@ -31,10 +30,8 @@ class TransformersNERDataset(Dataset):
         ## read all the instances. sentences and labels
         self.parser_mode = parser_mode
         self.dep_mode = dep_model
-        self.max_entity_length = 0
+        self.max_span_length = max_entity_length
         self.insts = self.read_file(file=file, number=number) if sents is None else self.read_from_sentences(sents)
-        minus = int((self.max_entity_length + 1) * self.max_entity_length / 2)
-        self.max_num_span = 128 * self.max_entity_length - minus # self.max_length = 128 max length of dataset
         if is_train:
             if label2idx is not None:
                 print(f"[WARNING] YOU ARE USING EXTERNAL label2idx, WHICH IS NOT BUILT FROM TRAINING SET.")
@@ -80,19 +77,14 @@ class TransformersNERDataset(Dataset):
                                              label2idx: Dict[str, int]) -> List[Dict]:
         features = []
         # print("[Data Info] We are not limiting the max length in tokenizer. You should be aware of that")
-        def clean_text(text):
-            cleaned_text = re.sub(r'\ufffd', '。', text)
-            return cleaned_text
-            
         for idx, inst in tqdm(enumerate(instances)):
             words = inst.ori_words
-            words = [clean_text(w) for w in words]
             orig_to_tok_index = []
             # res = tokenizer.encode_plus(words, is_split_into_words=True) # RobertaTokenizerFast
             # subword_idx2word_idx = res.word_ids(batch_index=0) # RobertaTokenizerFast
             input_ids = tokenizer.encode(words, is_split_into_words=True)
             attention_mask = [1] * len(input_ids)
-            tokens = [tokenizer.tokenize(w) for w in words]
+            tokens = [tokenizer.tokenize(w) if w.isalnum() else [w] for w in words]
             subword_idx2word_idx = [None] + list(itertools.chain(*[[i] * len(li) for i, li in enumerate(tokens)])) + [None]
             prev_word_idx = -1
             for i, mapped_word_idx in enumerate(subword_idx2word_idx):
@@ -133,10 +125,10 @@ class TransformersNERDataset(Dataset):
                 span_lens = []
                 span_weights = []
                 # If entity_labels is empty, assign default "O" label for the entire sentence
-                max_span_length = min(self.max_entity_length, len(words))
+                # max_span_length = min(self.max_entity_length, len(words))
                 spanlabel_ids = []
                 for entity_start in range(len(words)):
-                    for entity_end in range(entity_start, entity_start + max_span_length):
+                    for entity_end in range(entity_start, entity_start + self.max_span_length):
                         if entity_end < len(words):
                             label = span_labels.get((entity_start, entity_end), 0)
                             weight = 0.5  # self.neg_span_weight = 0.5
@@ -146,7 +138,7 @@ class TransformersNERDataset(Dataset):
                             spanlabel_ids.append(((entity_start, entity_end), label))
                             span_lens.append(entity_end - entity_start + 1)
                 spans = []
-                for start, end in self.enumerate_spans(words, max_span_width=max_span_length):
+                for start, end in self.enumerate_spans(words, max_span_width=self.max_span_length):
                     spans.append((start, end))
 
                 features.append({"input_ids": input_ids, # res["input_ids"], # RobertaTokenizerFast,
@@ -158,6 +150,22 @@ class TransformersNERDataset(Dataset):
                                  "span_mask": [1] * len(span_weights), "spanlabel_ids": spanlabel_ids})
         return features
 
+    def read_from_json(self, file: str)-> List[Instance]:
+        print(f"[Data Info] Reading file: {file}")
+        insts = []
+        with open(file, 'r') as f:
+            data = json.load(f)
+        for record in data:
+            words = record["tokens"]
+            chunks = [((entity["start"], entity["end"]-1), entity["type"]) for entity in record["entities"]]
+            # if len(chunks) > 0:
+            #     chunks_len = max(end - start + 1 for (start, end), _ in chunks)
+            #     if chunks_len > self.max_entity_length:
+            #         self.max_entity_length = chunks_len
+            insts.append(Instance(words=words, ori_words=words, dep_heads=None, dep_labels=None, span_labels=chunks, labels=None))
+        print("number of sentences: {}".format(len(insts)))
+        return insts
+    
     def read_from_sentences(self, sents: List[List[str]]):
         """
         sents = [['word_a', 'word_b'], ['word_aaa', 'word_bccc', 'word_ccc']]
@@ -182,8 +190,8 @@ class TransformersNERDataset(Dataset):
                 # Add a chunk.
                 chunk = ((chunk_start, i-1), chunk_type)
                 chunks.append(chunk)
-                if (i - chunk_start) > self.max_entity_length:
-                    self.max_entity_length = (i - chunk_start)
+                # if (i - chunk_start) > self.max_entity_length:
+                #     self.max_entity_length = (i - chunk_start)
                 chunk_type, chunk_start = None, None
             # End of a chunk + start of a chunk!
             elif tok != default:
@@ -192,8 +200,8 @@ class TransformersNERDataset(Dataset):
                     chunk_type, chunk_start = tok_chunk_type, i
                 elif tok_chunk_type != chunk_type or tok_chunk_class == "B":
                     chunk = ((chunk_start, i-1), chunk_type)
-                    if (i - chunk_start) > self.max_entity_length:
-                        self.max_entity_length = (i - chunk_start)
+                    # if (i - chunk_start) > self.max_entity_length:
+                    #     self.max_entity_length = (i - chunk_start)
                     chunks.append(chunk)
                     chunk_type, chunk_start = tok_chunk_type, i
             else:
@@ -201,8 +209,8 @@ class TransformersNERDataset(Dataset):
         # end condition
         if chunk_type is not None:
             chunk = ((chunk_start, len(seq)-1), chunk_type)
-            if len(seq) - chunk_start > self.max_entity_length:
-                self.max_entity_length = len(seq) - chunk_start
+            # if len(seq) - chunk_start > self.max_entity_length:
+            #     self.max_entity_length = len(seq) - chunk_start
             chunks.append(chunk)
 
         return chunks
@@ -257,10 +265,13 @@ class TransformersNERDataset(Dataset):
                     continue
                 if line == "" and len(words) != 0:
                     if self.parser_mode == PaserModeType.crf:
-                        labels = convert_iobes(labels)
+                        if 'msra' in file:
+                            labels = bmes_to_bioes(labels)
+                        else:
+                            labels = convert_iobes(labels)
                     else:
                         chunks = self.get_chunks(labels)
-                    if 'conll' in file or 'wnut' in file or 'Weibo' in file or 'resume' in file:
+                    if 'conll' in file or 'fewnerd' in file or 'Weibo' in file or 'resume' in file or 'msra' in file:
                         insts.append(Instance(words=words, ori_words=ori_words, dep_heads=None, dep_labels=None, span_labels=chunks, labels=labels))
                     else:
                         insts.append(Instance(words=words, ori_words=ori_words, dep_heads=dep_heads, dep_labels=dep_labels, span_labels=chunks, labels=labels))
@@ -276,7 +287,7 @@ class TransformersNERDataset(Dataset):
                 elif line == "" and len(words) == 0:
                     continue
                 ls = line.split()
-                if 'conll' in file or 'wnut' in file or 'Weibo' in file or 'resume' in file:
+                if 'conll' in file or 'fewnerd' in file or 'Weibo' in file or 'resume' in file or 'msra' in file:
                     word, label = ls[0], ls[-1]
                 else:
                     word, head, dep_label, label = ls[1], int(ls[6]), ls[7], ls[-1]

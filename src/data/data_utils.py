@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple, TypeVar, Optional, Callable
 from src.data import Instance
 import numpy as np
+from termcolor import colored
 
 
 B_PREF="B-"
@@ -16,9 +17,27 @@ UNK = "<UNK>"
 root_dep_label = "root"
 self_label = "self"
 
-import logging
-
-logger = logging.getLogger(__name__)
+def bmes_to_bioes(labels: List[str]) -> List[str]:
+	bioes_labels = []
+	for label in labels:
+		if label.startswith('B-'):
+			entity_type = label[2:]
+			bioes_labels.append('B-' + entity_type)
+		elif label.startswith('M-'):
+			entity_type = label[2:]
+			bioes_labels.append('I-' + entity_type)
+		elif label.startswith('E-'):
+			entity_type = label[2:]
+			bioes_labels.append('E-' + entity_type)
+		elif label.startswith('S-'):
+			entity_type = label[2:]
+			bioes_labels.append('S-' + entity_type)
+		elif label == 'O':
+			bioes_labels.append('O')
+		else:
+			# Handle unexpected labels, you may modify this based on your needs
+			bioes_labels.append(label)
+	return bioes_labels
 
 def convert_iobes(labels: List[str]) -> List[str]:
 	"""
@@ -65,8 +84,8 @@ def build_label_idx(insts: List[Instance]) -> Tuple[List[str], Dict[str, int]]:
 	label2idx[STOP_TAG] = len(label2idx)
 	idx2labels.append(STOP_TAG)
 	label_size = len(label2idx)
-	logger.info("#labels: {}".format(label_size))
-	logger.info("label 2idx: {}".format(label2idx))
+	print(colored(f"labels: {label_size}", "red"))
+	print(colored(f"label 2idx: {label2idx}", "yellow"))
 	return idx2labels, label2idx
 
 def build_spanlabel_idx(insts: List[Instance]) -> Tuple[List[str], Dict[str, int]]:

@@ -29,7 +29,6 @@ class SynDepAT(nn.Module):
 
     def __init__(self, config):
         super(SynDepAT, self).__init__()
-        self.device = config.device
         # self.dep_model = config.dep_model
         # NER + DP encoder and decoder
         self.nerdp_transformer = TransformersEmbedder(transformer_model_name=config.embedder_type)
@@ -38,10 +37,11 @@ class SynDepAT(nn.Module):
                                  self.nerdp_transformer.get_output_dim())
         self.nerdp_label_size = config.nerdp_label_size
         self.ner_label_size = config.ner_label_size
-        self.parser_mode = config.parser_mode
+        self.nerdp_parser_mode = config.nerdp_parser_mode
+        self.ner_parser_mode = config.ner_parser_mode
         self.root_dep_label_id = config.root_dep_label_id
         self.nerdp_line_encoder = LinearEncoder(label_size=config.nerdp_label_size, input_dim=config.gcn_outputsize * 2)
-        if self.parser_mode == PaserModeType.crf:
+        if self.nerdp_parser_mode == PaserModeType.crf:
             self.nerdp_crf = LinearCRF(label_size=config.nerdp_label_size, label2idx=config.nerdp_label2idx, add_iobes_constraint=config.add_iobes_constraint,
                                         idx2labels=config.nerdp_idx2labels)
         else:
@@ -63,12 +63,13 @@ class SynDepAT(nn.Module):
             #     self.nerdp_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
             #     input_dim = self.nerdp_endpoint_span_extractor.get_output_dim() + self.nerdp_attentive_span_extractor.get_output_dim()
             self.nerdp_span_classifier = MultiNonLinearClassifier(input_dim, config.nerdp_label_size, 0.2) # model_dropout = 0.2
+        
         # NER encoder and decoder
         self.ner_transformer = TransformersEmbedder(transformer_model_name=config.embedder_type)
         self.ner_transformer_drop = nn.Dropout(config.dropout)
         self.linear = nn.Linear(self.ner_transformer.get_output_dim(), config.gcn_outputsize)
         self.ner_line_encoder = LinearEncoder(label_size=config.ner_label_size, input_dim=config.gcn_outputsize * 2)
-        if self.parser_mode == PaserModeType.crf:
+        if self.ner_parser_mode == PaserModeType.crf:
             self.ner_crf = LinearCRF(label_size=config.ner_label_size, label2idx=config.ner_label2idx, add_iobes_constraint=config.add_iobes_constraint,
                                         idx2labels=config.ner_idx2labels)
         else:
@@ -87,8 +88,9 @@ class SynDepAT(nn.Module):
                                                                   num_width_embeddings=config.ner_max_entity_length,
                                                                   span_width_embedding_dim=50,
                                                                   bucket_widths=True)
-            self.ner_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
-            input_dim = self.ner_endpoint_span_extractor.get_output_dim() + self.ner_attentive_span_extractor.get_output_dim()
+            # self.ner_attentive_span_extractor = SelfAttentiveSpanExtractor(config.gcn_outputsize * 2)
+            # input_dim = self.ner_endpoint_span_extractor.get_output_dim() + self.ner_attentive_span_extractor.get_output_dim()
+            input_dim = self.ner_endpoint_span_extractor.get_output_dim()
             self.ner_span_classifier = MultiNonLinearClassifier(input_dim, config.ner_label_size, 0.2) # model_dropout = 0.2
         self.classifier = nn.Softmax(dim=-1)
         self.cross_entropy = nn.CrossEntropyLoss(reduction='none', ignore_index=-1)
@@ -136,10 +138,10 @@ class SynDepAT(nn.Module):
             concat_feature_out = self.fusion_nerdp(private_feature_out, shared_feature_out)
             concat_feature_out = self.fc_dropout(concat_feature_out)
             # adv loss
-            task_label_1 = torch.ones((bz, 2), device=self.device, dtype=torch.int8)
+            task_label_1 = torch.ones((bz, 2), dtype=torch.int8, device=shared_feature_out.device)
             adv_loss = self.adv_loss(shared_feature_out, task_label_1)
             # private decoding
-            if self.parser_mode == PaserModeType.crf:
+            if self.nerdp_parser_mode == PaserModeType.crf:
                 encoder_scores = self.nerdp_line_encoder(concat_feature_out, word_seq_lens)
                 if is_train:
                     unlabed_score, labeled_score = self.nerdp_crf(encoder_scores, word_seq_lens, labels, mask)
@@ -177,10 +179,10 @@ class SynDepAT(nn.Module):
             concat_feature_out = self.fusion_ner(private_feature_out, shared_feature_out)
             concat_feature_out = self.fc_dropout(concat_feature_out)
             # adv loss
-            task_label_0 = torch.zeros((bz, 2), device=self.device, dtype=torch.int8)
+            task_label_0 = torch.zeros((bz, 2), dtype=torch.int8, device=shared_feature_out.device)
             adv_loss = self.adv_loss(shared_feature_out, task_label_0)
             # private decoding
-            if self.parser_mode == PaserModeType.crf:
+            if self.ner_parser_mode == PaserModeType.crf:
                 encoder_scores = self.ner_line_encoder(concat_feature_out, word_seq_lens)
                 if is_train:
                     unlabed_score, labeled_score = self.ner_crf(encoder_scores, word_seq_lens, labels, mask)
@@ -190,8 +192,8 @@ class SynDepAT(nn.Module):
                     return decodeIdx
             else: # span and hidden states begin and end tcat
                 all_span_rep = self.ner_endpoint_span_extractor(concat_feature_out, all_span_ids.long())  # [batch, n_span, hidden]
-                att_span_emb = self.ner_attentive_span_extractor(concat_feature_out, all_span_ids.long())
-                all_span_rep = torch.cat((all_span_rep, att_span_emb), dim=-1)
+                # att_span_emb = self.ner_attentive_span_extractor(concat_feature_out, all_span_ids.long())
+                # all_span_rep = torch.cat((all_span_rep, att_span_emb), dim=-1)
                 all_span_rep = self.ner_span_classifier(all_span_rep)  # (batch,n_span,n_class)
                 if is_train:
                     _, n_span = labels.size()
