@@ -1,5 +1,5 @@
 # SynDepAT
-SynDepAT learns to transfer syntactic dependency knowledge across domains. Additionally, Introducing a Span-Relation (SpanRel) approach based on universal dependency transfer, which can be easily extended to a wide range of natural language analysis tasks. 
+SynDepAT learns to transfer syntactic dependency knowledge across domains. The dependency transfer source domain comes from the dependency parsing task, while the target task is NER. Of course, this method can be easily extended to a wide range of natural language analysis tasks.
 
 # Model Architecture
 
@@ -14,16 +14,14 @@ Transformers 3.3.1
 
 | Model  | Dataset | Pretrained Model |P | R | F1 |
 | ------------- | ------------- |-------------|------------- |------------- |------------- |
-| ELECTRA-base-Syn-LSTM-CRF  | Chinese-XXX-NER  | chinese-electra-180g-base-discriminator |-  |-  |-  |
-| ELECTRA-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| ELECTRA-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| ELECTRA-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
-| ELECTRA-base-Syn-LSTM-Span | chinese-XXX-NER  | chinese-electra-180g-base-discriminator |- |-  | - |
+| SynDepAT | ctb5 and ontonotes cn| bert-base-multilan-cased |-  |-  |-  |
+| SynDepAT | ctb5 and resume  | bert-base-multilan-cased |- |-  | - |
+| SynDepAT | ctb5 and weibo  | bert-base-multilan-cased |- |-  | - |
+| SynDepAT | ctb5 and marsa  | bert-base-multilan-cased |- |-  | - |
 
 | Model  | Dataset | Pretrained Model |P | R | F1 |
 | ------------- | ------------- |-------------|------------- |------------- |------------- |
-| RoBERTa-base-Syn-LSTM-CRF  | English-Conll2003-NER  | RoBERTa-base |-  |-  | 92.22  |
-| RoBERTa-base-Syn-LSTM-Span | English-XXX-NER  | RoBERTa-base |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
-| RoBERTa-base-Syn-LSTM-Span | chinese-XXX-NER  | RoBERTa-base |- |-  | - |
+| SynDepAT | ptb and ontonotes en| bert-large-cased |-  |-  |-  |
+| SynDepAT | ptb and conll03  | bert-large-cased |- |-  | - |
+| SynDepAT | ptb and ace04  | bert-large-cased |- |-  | - |
+| SynDepAT | ptb and ace05  | bert-large-cased |- |-  | - |
