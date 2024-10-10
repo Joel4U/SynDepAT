@@ -1,1 +1,0 @@
-from src.model.embedder.transformers_embedder import TransformersEmbedder
