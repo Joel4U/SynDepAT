@@ -29,7 +29,7 @@ Transformers 3.3.1
 
 | NER Model  | Dataset | Pretrained Model |P | R | F1 | Parameters
 | ------------- | ------------- |-------------|------------- |------------- |------------- |------------- |
-| SynDepAT （w/o dep）-crf | conll03| bert-base-cased |-  |-  |-  | bert-lr: 2e-5  other-lr:  enc-layers: 
+| SynDepAT （w/o dep）-crf | conll03| bert-base-cased |91.81 |92.10  |91.96  | bert-lr: 2e-5  other-lr: 1e-3  (lstm)enc_layers: 1, (lstm)shared_enc_nlayers: 3
 | SynDepAT （w/o dep）-crf|  ontonotes  | bert-base-cased |- |-  | - |
 | SynDepAT （w/o dep）-crf|  chinese  | bert-base-multilan-cased |- |-  | - |
 | SynDepAT （w/o dep）-crf|  resume | bert-base-multilan-cased |- |-  | - |
