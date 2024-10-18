@@ -49,3 +49,6 @@ Transformers 3.3.1
 | SynDepAT （w/o dep）-span|  resume | bert-base-multilan-cased |- |-  | - | - |
 | SynDepAT （w/o dep）-span|  catalan  | bert-base-multilan-cased |- |-  | - | - |
 | SynDepAT （w/o dep）-span|  spanish | bert-base-multilan-cased |- |-  | - | - |
+
+ bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w/o pos|rel） crf
+[src-test set Total] Prec.: 89.08, Rec.: 90.03, Micro F1: 89.55
