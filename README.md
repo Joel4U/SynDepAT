@@ -52,5 +52,6 @@ Transformers 3.3.1
 
  bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w/o pos|rel） crf
 [src-test set Total] Prec.: 89.08, Rec.: 90.03, Micro F1: 89.55
+
  bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel /o pos） crf
 [src-test set Total] Prec.: 89.34, Rec.: 90.44, Micro F1: 89.89 (8个以上超越89.50)
