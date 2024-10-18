@@ -50,13 +50,13 @@ Transformers 3.3.1
 | SynDepAT （w/o dep）-span|  catalan  | bert-base-multilan-cased |- |-  | - | - |
 | SynDepAT （w/o dep）-span|  spanish | bert-base-multilan-cased |- |-  | - | - |
 
- bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w/o pos|rel） crf
+ bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w/o pos|rel） crf  
 [src-test set Total] Prec.: 89.08, Rec.: 90.03, Micro F1: 89.55
 
- bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel /o pos） crf
+ bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel /o pos） crf  
 [src-test set Total] Prec.: 89.34, Rec.: 90.44, Micro F1: 89.89 (8个以上超越89.50)
 
- bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel 、 pos） crf
-10/18/2024 17:35:26 PM - trainer.py - INFO: [src-dev set Total] Prec.: 88.02, Rec.: 89.45, Micro F1: 88.73（这个是最好的）DEV的整体性能是比不过w rel /o pos
-10/18/2024 17:35:45 PM - trainer.py - INFO: [src-test set Total] Prec.: 89.39, Rec.: 90.10, Micro F1: 89.74 整体性能是比不过w rel /o pos
+ bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel 、 pos） crf  
+10/18/2024 17:35:26 PM - trainer.py - INFO: [src-dev set Total] Prec.: 88.02, Rec.: 89.45, Micro F1: 88.73（这个是最好的）DEV的整体性能是比不过w rel /o pos  
+10/18/2024 17:35:45 PM - trainer.py - INFO: [src-test set Total] Prec.: 89.39, Rec.: 90.10, Micro F1: 89.74 整体性能是比不过w rel /o pos  
 
