@@ -55,3 +55,8 @@ Transformers 3.3.1
 
  bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel /o pos） crf
 [src-test set Total] Prec.: 89.34, Rec.: 90.44, Micro F1: 89.89 (8个以上超越89.50)
+
+ bert-lr: 2e-5  other-lr: 1e-3  (synlstm), (naivetrans)shared_enc_nlayers: 3， shared_input_dim： 864（w rel 、 pos） crf
+10/18/2024 17:35:26 PM - trainer.py - INFO: [src-dev set Total] Prec.: 88.02, Rec.: 89.45, Micro F1: 88.73（这个是最好的）
+10/18/2024 17:35:45 PM - trainer.py - INFO: [src-test set Total] Prec.: 89.39, Rec.: 90.10, Micro F1: 89.74
+
